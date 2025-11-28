@@ -1,38 +1,46 @@
-import { supabase } from '../utils/supabase';
+/**
+ * Replicate AI Service
+ * Handles music generation and cover art creation
+ * 
+ * Note: This calls Replicate API directly, which works on native mobile apps.
+ * CORS is only a browser limitation - native iOS/Android apps don't have this restriction.
+ */
 
-// Get the Supabase URL for edge functions
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://vmjskjejkdxslnihrmzh.supabase.co';
-const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/generate-music`;
+const REPLICATE_API_TOKEN = process.env.EXPO_PUBLIC_REPLICATE_API_TOKEN;
+
+if (!REPLICATE_API_TOKEN) {
+  console.warn('⚠️ EXPO_PUBLIC_REPLICATE_API_TOKEN is not set in .env file');
+}
 
 /**
- * Call the Supabase Edge Function for AI generation
- * This proxies requests to Replicate to avoid CORS issues
+ * Wait for a Replicate prediction to complete
  */
-const callEdgeFunction = async (body) => {
-  try {
-    // Get the current session for auth
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    const response = await fetch(EDGE_FUNCTION_URL, {
-      method: 'POST',
+const waitForPrediction = async (predictionUrl) => {
+  const maxAttempts = 120; // 10 minutes max (5 second intervals)
+  let attempts = 0;
+
+  while (attempts < maxAttempts) {
+    const response = await fetch(predictionUrl, {
       headers: {
+        'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token || ''}`,
       },
-      body: JSON.stringify(body),
     });
 
-    const result = await response.json();
+    const prediction = await response.json();
 
-    if (!result.success) {
-      throw new Error(result.error || 'Generation failed');
+    if (prediction.status === 'succeeded') {
+      return prediction.output;
+    } else if (prediction.status === 'failed' || prediction.status === 'canceled') {
+      throw new Error(`Prediction ${prediction.status}: ${prediction.error || 'Unknown error'}`);
     }
 
-    return result.data;
-  } catch (error) {
-    console.error('Edge function error:', error);
-    throw error;
+    // Wait 5 seconds before checking again
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    attempts++;
   }
+
+  throw new Error('Prediction timed out');
 };
 
 // ==================== MUSIC GENERATION ====================
@@ -48,12 +56,50 @@ const callEdgeFunction = async (body) => {
  * @returns {Promise<string>} URL to generated audio file
  */
 export const generateMusicAceStep = async ({ tags, lyrics, duration = 60 }) => {
-  return callEdgeFunction({
-    action: 'generate_music_ace',
-    tags,
-    lyrics,
-    duration,
-  });
+  try {
+    const response = await fetch(
+      'https://api.replicate.com/v1/predictions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          version: '280fc4f9ee507577f880a167f639c02622421d8fecf492454320311217b688f1',
+          input: {
+            seed: -1,
+            tags,
+            lyrics,
+            duration,
+            scheduler: 'euler',
+            guidance_type: 'apg',
+            guidance_scale: 15,
+            number_of_steps: 60,
+            granularity_scale: 10,
+            guidance_interval: 0.5,
+            min_guidance_scale: 3,
+            tag_guidance_scale: 0,
+            lyric_guidance_scale: 0,
+            guidance_interval_decay: 0,
+          },
+        }),
+      }
+    );
+
+    const prediction = await response.json();
+    
+    if (prediction.error) {
+      throw new Error(prediction.error);
+    }
+
+    // Wait for the prediction to complete
+    const output = await waitForPrediction(prediction.urls.get);
+    return output;
+  } catch (error) {
+    console.error('Error generating music with ACE-Step:', error);
+    throw error;
+  }
 };
 
 /**
@@ -66,11 +112,40 @@ export const generateMusicAceStep = async ({ tags, lyrics, duration = 60 }) => {
  * @returns {Promise<string>} URL to generated audio file
  */
 export const generateMusicMiniMax = async ({ prompt, lyrics }) => {
-  return callEdgeFunction({
-    action: 'generate_music_minimax',
-    prompt,
-    lyrics,
-  });
+  try {
+    const response = await fetch(
+      'https://api.replicate.com/v1/models/minimax/music-1.5/predictions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: {
+            lyrics,
+            prompt,
+            bitrate: 256000,
+            sample_rate: 44100,
+            audio_format: 'mp3',
+          },
+        }),
+      }
+    );
+
+    const prediction = await response.json();
+    
+    if (prediction.error) {
+      throw new Error(prediction.error);
+    }
+
+    // Wait for the prediction to complete
+    const output = await waitForPrediction(prediction.urls.get);
+    return output;
+  } catch (error) {
+    console.error('Error generating music with MiniMax:', error);
+    throw error;
+  }
 };
 
 /**
@@ -85,24 +160,29 @@ export const generateMusicMiniMax = async ({ prompt, lyrics }) => {
  * @returns {Promise<{option1: Object, option2: Object}>} Both generated audio options
  */
 export const generateMusicOptions = async ({ tags, prompt, lyrics, duration = 60 }) => {
-  // Run both in parallel via separate calls
-  const [option1, option2] = await Promise.all([
-    generateMusicAceStep({ tags, lyrics, duration }),
-    generateMusicMiniMax({ prompt, lyrics }),
-  ]);
+  try {
+    // Run both models in parallel for faster generation
+    const [aceOutput, minimaxOutput] = await Promise.all([
+      generateMusicAceStep({ tags, lyrics, duration }),
+      generateMusicMiniMax({ prompt, lyrics }),
+    ]);
 
-  return {
-    option1: {
-      url: option1,
-      model: 'ace-step',
-      description: 'Electronic/Synth Style',
-    },
-    option2: {
-      url: option2,
-      model: 'minimax',
-      description: 'Polished/Smooth Style',
-    },
-  };
+    return {
+      option1: {
+        url: aceOutput,
+        model: 'ace-step',
+        description: 'Electronic/Synth Style',
+      },
+      option2: {
+        url: minimaxOutput,
+        model: 'minimax',
+        description: 'Polished/Smooth Style',
+      },
+    };
+  } catch (error) {
+    console.error('Error generating music options:', error);
+    throw error;
+  }
 };
 
 // ==================== COVER ART GENERATION ====================
@@ -115,10 +195,49 @@ export const generateMusicOptions = async ({ tags, prompt, lyrics, duration = 60
  * @returns {Promise<string>} URL to generated image
  */
 export const generateCoverArt = async ({ prompt }) => {
-  return callEdgeFunction({
-    action: 'generate_cover_art',
-    prompt,
-  });
+  try {
+    const response = await fetch(
+      'https://api.replicate.com/v1/models/bytedance/seedream-4/predictions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: {
+            size: '1K',
+            width: 1024,
+            height: 1024,
+            prompt: `Album cover art: ${prompt}. Professional music album artwork, high quality, artistic, visually striking.`,
+            max_images: 1,
+            image_input: [],
+            aspect_ratio: '1:1',
+            enhance_prompt: true,
+            sequential_image_generation: 'disabled',
+          },
+        }),
+      }
+    );
+
+    const prediction = await response.json();
+    
+    if (prediction.error) {
+      throw new Error(prediction.error);
+    }
+
+    // Wait for the prediction to complete
+    const output = await waitForPrediction(prediction.urls.get);
+    
+    // Return first image URL
+    if (Array.isArray(output) && output[0]) {
+      return typeof output[0] === 'string' ? output[0] : output[0].url || output[0];
+    }
+    return output;
+  } catch (error) {
+    console.error('Error generating cover art:', error);
+    throw error;
+  }
 };
 
 /**
@@ -132,19 +251,15 @@ export const generateCoverArt = async ({ prompt }) => {
  * @returns {Promise<string>} URL to generated image
  */
 export const generateCoverArtFromSong = async ({ title, genre, mood = '' }) => {
-  return callEdgeFunction({
-    action: 'generate_cover_art',
-    title,
-    genre,
-    prompt: mood ? `${mood} mood` : undefined,
-  });
+  const prompt = `${genre} music album cover for a song called "${title}". ${mood ? `${mood} mood.` : ''} Abstract, artistic, modern design.`;
+  return generateCoverArt({ prompt });
 };
 
 // ==================== FULL TRACK GENERATION ====================
 
 /**
  * Generate a complete track with music options and cover art
- * This is the most efficient method - runs all generations in parallel on the server
+ * Runs all generations in parallel for efficiency
  * 
  * @param {Object} params
  * @param {string} params.title - Song title
@@ -163,15 +278,25 @@ export const generateCompleteTrack = async ({
   genre, 
   duration = 60 
 }) => {
-  return callEdgeFunction({
-    action: 'generate_complete',
-    title,
-    tags,
-    prompt,
-    lyrics,
-    genre,
-    duration,
-  });
+  try {
+    // Run all three generations in parallel
+    const [musicOptions, coverArtUrl] = await Promise.all([
+      generateMusicOptions({ tags, prompt, lyrics, duration }),
+      generateCoverArtFromSong({ title, genre }),
+    ]);
+
+    return {
+      title: title || 'Untitled Track',
+      genre,
+      lyrics,
+      duration,
+      coverArtUrl,
+      musicOptions,
+    };
+  } catch (error) {
+    console.error('Error generating complete track:', error);
+    throw error;
+  }
 };
 
 export default {
