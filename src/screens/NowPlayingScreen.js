@@ -23,6 +23,7 @@ import Animated, {
   SlideInRight
 } from 'react-native-reanimated';
 import { Audio } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av';
 import { PlaybackControls } from '../components/PlaybackControls';
 import { 
   getTrackById, 
@@ -54,6 +55,7 @@ export const NowPlayingScreen = ({ navigation, route }) => {
   const [audioLoading, setAudioLoading] = useState(false);
 
   const soundRef = useRef(null);
+  const videoRef = useRef(null);
   const heartScale = useSharedValue(1);
   const progressWidth = useSharedValue(0);
 
@@ -270,51 +272,74 @@ export const NowPlayingScreen = ({ navigation, route }) => {
     duration: 0,
   };
 
+  const hasVideo = !!displayTrack.video_url;
+  const iconColor = hasVideo ? 'rgba(255,255,255,0.9)' : theme.colors.gray.dark;
+  const textColorStyle = hasVideo ? styles.textLight : {};
+
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.header}>
-          <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="chevron-down" size={32} color={theme.colors.gray.dark} />
-          </Pressable>
+    <View style={styles.container}>
+      {/* Video Background */}
+      {hasVideo && (
+        <Video
+          ref={videoRef}
+          source={{ uri: displayTrack.video_url }}
+          style={styles.videoBackground}
+          resizeMode={ResizeMode.COVER}
+          isLooping
+          shouldPlay
+          isMuted
+        />
+      )}
+      
+      {/* Overlay for video to ensure text readability */}
+      {hasVideo && <View style={styles.videoOverlay} />}
 
-          <View style={styles.headerActions}>
-            <Pressable style={styles.actionButton}>
-              <Ionicons name="shuffle-outline" size={24} color={theme.colors.gray.dark} />
+      <SafeAreaView style={styles.safeArea}>
+        <KeyboardAvoidingView 
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.header}>
+            <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="chevron-down" size={32} color={iconColor} />
             </Pressable>
-            <Pressable style={styles.actionButton}>
-              <Ionicons name="repeat-outline" size={24} color={theme.colors.gray.dark} />
-            </Pressable>
-            <Pressable style={styles.actionButton} onPress={handleLikePress}>
-              <Animated.View style={heartAnimatedStyle}>
+
+            <View style={styles.headerActions}>
+              <Pressable style={styles.actionButton}>
+                <Ionicons name="shuffle-outline" size={24} color={iconColor} />
+              </Pressable>
+              <Pressable style={styles.actionButton}>
+                <Ionicons name="repeat-outline" size={24} color={iconColor} />
+              </Pressable>
+              <Pressable style={styles.actionButton} onPress={handleLikePress}>
+                <Animated.View style={heartAnimatedStyle}>
+                  <Ionicons 
+                    name={isLiked ? "heart" : "heart-outline"} 
+                    size={24} 
+                    color={isLiked ? theme.colors.error : iconColor} 
+                  />
+                </Animated.View>
+              </Pressable>
+              <Pressable style={styles.actionButton} onPress={() => setShowComments(!showComments)}>
                 <Ionicons 
-                  name={isLiked ? "heart" : "heart-outline"} 
-                  size={24} 
-                  color={isLiked ? theme.colors.error : theme.colors.gray.dark} 
+                  name={showComments ? "chatbubble" : "chatbubble-outline"} 
+                  size={22} 
+                  color={showComments ? theme.colors.accent : iconColor} 
                 />
-              </Animated.View>
-            </Pressable>
-            <Pressable style={styles.actionButton} onPress={() => setShowComments(!showComments)}>
-              <Ionicons 
-                name={showComments ? "chatbubble" : "chatbubble-outline"} 
-                size={22} 
-                color={showComments ? theme.colors.accent : theme.colors.gray.dark} 
-              />
-            </Pressable>
-            <Pressable style={styles.actionButton}>
-              <Ionicons name="share-outline" size={24} color={theme.colors.gray.dark} />
-            </Pressable>
+              </Pressable>
+              <Pressable style={styles.actionButton}>
+                <Ionicons name="share-outline" size={24} color={iconColor} />
+              </Pressable>
+            </View>
           </View>
-        </View>
 
-        {!showComments ? (
-          <View style={styles.content}>
-            <View style={styles.artworkContainer}>
-              <Image
-                source={{ uri: displayTrack.artwork_url || 'https://picsum.photos/600/600' }}
+          {!showComments ? (
+            <View style={styles.content}>
+              {/* Only show artwork if no video */}
+              {!hasVideo && (
+                <View style={styles.artworkContainer}>
+                  <Image
+                    source={{ uri: displayTrack.artwork_url || 'https://picsum.photos/600/600' }}
                 style={styles.artwork}
               />
             </View>

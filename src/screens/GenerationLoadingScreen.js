@@ -27,6 +27,18 @@ const STATUS_MESSAGES = [
   "Almost there...",
 ];
 
+const STATUS_MESSAGES_WITH_VIDEO = [
+  "Analyzing your lyrics...",
+  "Composing melodies...",
+  "Generating audio with AI...",
+  "Creating cover art...",
+  "Generating music video...",
+  "Rendering video frames...",
+  "Mixing and mastering...",
+  "Adding the finishing touches...",
+  "Almost there...",
+];
+
 export const GenerationLoadingScreen = ({ navigation, route }) => {
   const {
     lyrics = '',
@@ -36,7 +48,10 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
     createVideo = false,
     videoStyle = '',
     videoDescription = '',
+    videoPrompt = '',
   } = route.params || {};
+
+  const messages = createVideo ? STATUS_MESSAGES_WITH_VIDEO : STATUS_MESSAGES;
 
   const [statusIndex, setStatusIndex] = useState(0);
   const [error, setError] = useState(null);
@@ -141,7 +156,7 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
 
     // Status message rotation
     const statusInterval = setInterval(() => {
-      setStatusIndex(prev => (prev + 1) % STATUS_MESSAGES.length);
+      setStatusIndex(prev => (prev + 1) % messages.length);
     }, 4000);
 
     // Elapsed time counter
@@ -174,6 +189,8 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
           lyrics: formattedLyrics,
           genre,
           duration: 60,
+          createVideo,
+          videoPrompt,
         });
 
         // Navigate to choice screen with both options
@@ -260,7 +277,7 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
         <Text style={styles.title}>Creating Your Masterpiece</Text>
         
         <View style={styles.statusContainer}>
-          <Text style={styles.status}>{STATUS_MESSAGES[statusIndex]}</Text>
+          <Text style={styles.status}>{messages[statusIndex]}</Text>
           <View style={styles.dotsContainer}>
             <Animated.View style={[styles.dot, dot1Style]} />
             <Animated.View style={[styles.dot, dot2Style]} />
@@ -276,8 +293,13 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
           <Text style={styles.infoText}>
             🎵 Generating two unique versions for you to choose from
           </Text>
+          {createVideo && (
+            <Text style={styles.infoText}>
+              🎬 Plus a 4-second looping music video
+            </Text>
+          )}
           <Text style={styles.tipText}>
-            This usually takes 2-3 minutes
+            This usually takes {createVideo ? '3-5' : '2-3'} minutes
           </Text>
         </View>
       </View>

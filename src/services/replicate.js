@@ -268,10 +268,80 @@ Professional music album artwork, high quality, visually striking, no text or wo
   return generateCoverArt({ prompt });
 };
 
+// ==================== VIDEO GENERATION ====================
+
+/**
+ * Generate a music video using Google Veo 3 model
+ * Videos are 4 seconds and loop continuously
+ * 
+ * @param {Object} params
+ * @param {string} params.prompt - Description of the video to generate
+ * @param {string} params.genre - Genre/style for visual context
+ * @param {string} params.lyrics - Lyrics for thematic context
+ * @returns {Promise<string>} URL to generated video file
+ */
+export const generateMusicVideo = async ({ prompt, genre = '', lyrics = '' }) => {
+  try {
+    // Build an enhanced prompt for music video generation
+    const lyricsContext = lyrics
+      .replace(/\[(verse|chorus|bridge|outro|intro)\]/gi, '')
+      .split('\n')
+      .filter(line => line.trim().length > 0)
+      .slice(0, 4)
+      .join(' ')
+      .substring(0, 200);
+
+    const enhancedPrompt = `Music video for a ${genre || 'music'} song. ${prompt}. 
+${lyricsContext ? `The mood and theme should reflect: "${lyricsContext}".` : ''}
+Cinematic, visually stunning, seamless loop, high quality music video aesthetic.`;
+
+    const response = await fetch(
+      'https://api.replicate.com/v1/models/google/veo-3/predictions',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: {
+            prompt: enhancedPrompt,
+            duration: 4, // 4 seconds for looping
+            resolution: '720p', // Optimized for mobile
+            aspect_ratio: '9:16', // Vertical for mobile
+            generate_audio: false, // We have our own audio
+          },
+        }),
+      }
+    );
+
+    const prediction = await response.json();
+    
+    if (prediction.error) {
+      throw new Error(prediction.error);
+    }
+
+    // Wait for the prediction to complete
+    const output = await waitForPrediction(prediction.urls.get);
+    
+    // Return video URL
+    if (typeof output === 'string') {
+      return output;
+    }
+    if (output?.url) {
+      return output.url;
+    }
+    return output;
+  } catch (error) {
+    console.error('Error generating music video:', error);
+    throw error;
+  }
+};
+
 // ==================== FULL TRACK GENERATION ====================
 
 /**
- * Generate a complete track with music options and cover art
+ * Generate a complete track with music options, cover art, and optional video
  * Runs all generations in parallel for efficiency
  * 
  * @param {Object} params
@@ -281,7 +351,9 @@ Professional music album artwork, high quality, visually striking, no text or wo
  * @param {string} params.lyrics - Lyrics with structure tags
  * @param {string} params.genre - Genre for cover art
  * @param {number} params.duration - Duration in seconds
- * @returns {Promise<Object>} Complete track data with music options and cover art
+ * @param {boolean} params.createVideo - Whether to generate a music video
+ * @param {string} params.videoPrompt - Description for the video
+ * @returns {Promise<Object>} Complete track data with music options, cover art, and video
  */
 export const generateCompleteTrack = async ({ 
   title, 
@@ -289,14 +361,26 @@ export const generateCompleteTrack = async ({
   prompt, 
   lyrics, 
   genre, 
-  duration = 60 
+  duration = 60,
+  createVideo = false,
+  videoPrompt = '',
 }) => {
   try {
-    // Run all three generations in parallel
-    const [musicOptions, coverArtUrl] = await Promise.all([
+    // Build parallel generation tasks
+    const tasks = [
       generateMusicOptions({ tags, prompt, lyrics, duration }),
-      generateCoverArtFromSong({ title, genre, lyrics }), // Pass lyrics for unique cover art
-    ]);
+      generateCoverArtFromSong({ title, genre, lyrics }),
+    ];
+
+    // Add video generation if requested
+    if (createVideo && videoPrompt) {
+      tasks.push(generateMusicVideo({ prompt: videoPrompt, genre, lyrics }));
+    }
+
+    // Run all generations in parallel
+    const results = await Promise.all(tasks);
+    
+    const [musicOptions, coverArtUrl, videoUrl] = results;
 
     return {
       title: title || 'Untitled Track',
@@ -305,6 +389,7 @@ export const generateCompleteTrack = async ({
       duration,
       coverArtUrl,
       musicOptions,
+      videoUrl: createVideo ? videoUrl : null,
     };
   } catch (error) {
     console.error('Error generating complete track:', error);
@@ -318,5 +403,6 @@ export default {
   generateMusicOptions,
   generateCoverArt,
   generateCoverArtFromSong,
+  generateMusicVideo,
   generateCompleteTrack,
 };

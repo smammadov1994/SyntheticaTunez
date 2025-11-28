@@ -36,7 +36,7 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
   const option1Scale = useSharedValue(1);
   const option2Scale = useSharedValue(1);
 
-  const { musicOptions, coverArtUrl, genre, lyrics, duration } = generationResult || {};
+  const { musicOptions, coverArtUrl, genre, lyrics, duration, videoUrl } = generationResult || {};
 
   // Cleanup audio on unmount
   useEffect(() => {
@@ -123,6 +123,7 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
         duration,
         artwork_url: coverArtUrl,
         audio_url: selectedMusic?.url,
+        video_url: videoUrl || null,
         is_public: true,
       });
 

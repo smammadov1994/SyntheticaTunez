@@ -32,6 +32,11 @@ export const CreateVideoScreen = ({ navigation, route }) => {
   const [videoDescription, setVideoDescription] = useState('');
 
   const handleGenerate = () => {
+    // Build the video prompt from style and description
+    const videoPrompt = createVideo 
+      ? `${selectedStyle || ''} style. ${videoDescription}`.trim()
+      : '';
+
     // Build the generation params
     const generationParams = {
       lyrics,
@@ -41,6 +46,7 @@ export const CreateVideoScreen = ({ navigation, route }) => {
       createVideo,
       videoStyle: selectedStyle,
       videoDescription,
+      videoPrompt, // Combined prompt for video generation
     };
 
     navigation.navigate('GenerationLoading', generationParams);
@@ -91,16 +97,26 @@ export const CreateVideoScreen = ({ navigation, route }) => {
               ))}
             </View>
             
+            <Text style={styles.inputLabel}>Describe your music video</Text>
             <TextInput
               style={styles.input}
               multiline
-              placeholder="Describe the visual style... (e.g., 'neon lights, city at night')"
+              placeholder="E.g., 'A dreamy sunset over the ocean with silhouettes dancing on the beach, warm golden light, slow motion waves crashing'"
               placeholderTextColor={theme.colors.gray.medium}
               value={videoDescription}
               onChangeText={setVideoDescription}
               textAlignVertical="top"
               selectionColor={theme.colors.black}
+              maxLength={500}
             />
+            <Text style={styles.charCount}>{videoDescription.length}/500</Text>
+            
+            <View style={styles.videoInfoBox}>
+              <Ionicons name="information-circle-outline" size={18} color={theme.colors.gray.dark} />
+              <Text style={styles.videoInfoText}>
+                Video will be 4 seconds and loop continuously during playback
+              </Text>
+            </View>
           </View>
         )}
 
@@ -221,19 +237,47 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     marginBottom: 16,
   },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.black,
+    marginBottom: 8,
+    marginTop: 8,
+  },
   input: {
     backgroundColor: '#FAFAFA',
     borderRadius: theme.borderRadius.sm,
     padding: 16,
     fontSize: 16,
     lineHeight: 24,
-    minHeight: 100,
+    minHeight: 120,
     color: theme.colors.black,
     ...Platform.select({
       web: {
         outlineStyle: 'none',
       },
     }),
+  },
+  charCount: {
+    fontSize: 12,
+    color: theme.colors.gray.dark,
+    textAlign: 'right',
+    marginTop: 4,
+  },
+  videoInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.gray.light,
+    padding: 12,
+    borderRadius: theme.borderRadius.sm,
+    marginTop: 16,
+    gap: 8,
+  },
+  videoInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: theme.colors.gray.dark,
+    lineHeight: 18,
   },
   summarySection: {
     marginTop: 24,
