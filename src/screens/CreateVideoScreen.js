@@ -114,7 +114,7 @@ export const CreateVideoScreen = ({ navigation, route }) => {
             <View style={styles.videoInfoBox}>
               <Ionicons name="information-circle-outline" size={18} color={theme.colors.gray.dark} />
               <Text style={styles.videoInfoText}>
-                Video will be 4 seconds and loop continuously during playback
+                Video will be 4 seconds at 1080p (16:9) and loop continuously during playback
               </Text>
             </View>
           </View>

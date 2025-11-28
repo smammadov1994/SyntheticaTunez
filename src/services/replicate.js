@@ -307,8 +307,8 @@ Cinematic, visually stunning, seamless loop, high quality music video aesthetic.
           input: {
             prompt: enhancedPrompt,
             duration: 4, // 4 seconds for looping
-            resolution: '720p', // Optimized for mobile
-            aspect_ratio: '9:16', // Vertical for mobile
+            resolution: '1080p', // HD quality for background video
+            aspect_ratio: '16:9', // Horizontal/landscape
             generate_audio: false, // We have our own audio
           },
         }),
