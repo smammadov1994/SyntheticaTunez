@@ -1,8 +1,18 @@
 import Replicate from 'replicate';
 
+// Get Replicate API token from environment
+const replicateToken = process.env.EXPO_PUBLIC_REPLICATE_API_TOKEN || '';
+
+if (!replicateToken) {
+  console.warn(
+    '⚠️ EXPO_PUBLIC_REPLICATE_API_TOKEN is not set. Please add it to your .env file:\n' +
+    'EXPO_PUBLIC_REPLICATE_API_TOKEN=your_replicate_api_token_here'
+  );
+}
+
 // Initialize Replicate client
 const replicate = new Replicate({
-  auth: process.env.EXPO_PUBLIC_REPLICATE_API_TOKEN,
+  auth: replicateToken,
 });
 
 // ==================== MUSIC GENERATION ====================
