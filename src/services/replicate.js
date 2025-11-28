@@ -125,6 +125,11 @@ export const generateMusicAceStep = async ({ tags, lyrics, duration = 60 }) => {
  */
 export const generateMusicMiniMax = async ({ prompt, lyrics }) => {
   try {
+    // Validate API token
+    if (!REPLICATE_API_TOKEN || REPLICATE_API_TOKEN === 'undefined') {
+      throw new Error('REPLICATE_API_TOKEN is not configured. Please set it in your .env file.');
+    }
+
     const response = await fetch(
       'https://api.replicate.com/v1/models/minimax/music-1.5/predictions',
       {
@@ -144,6 +149,13 @@ export const generateMusicMiniMax = async ({ prompt, lyrics }) => {
         }),
       }
     );
+
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      throw new Error(`Replicate API error (${response.status}): ${text.substring(0, 300)}`);
+    }
 
     const prediction = await response.json();
     
@@ -208,6 +220,11 @@ export const generateMusicOptions = async ({ tags, prompt, lyrics, duration = 60
  */
 export const generateCoverArt = async ({ prompt }) => {
   try {
+    // Validate API token
+    if (!REPLICATE_API_TOKEN || REPLICATE_API_TOKEN === 'undefined') {
+      throw new Error('REPLICATE_API_TOKEN is not configured. Please set it in your .env file.');
+    }
+
     const response = await fetch(
       'https://api.replicate.com/v1/models/bytedance/seedream-4/predictions',
       {
@@ -231,6 +248,13 @@ export const generateCoverArt = async ({ prompt }) => {
         }),
       }
     );
+
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      throw new Error(`Replicate API error (${response.status}): ${text.substring(0, 300)}`);
+    }
 
     const prediction = await response.json();
     
@@ -307,6 +331,11 @@ export const generateMusicVideo = async ({ prompt, genre = '', lyrics = '' }) =>
 ${lyricsContext ? `The mood and theme should reflect: "${lyricsContext}".` : ''}
 Cinematic, visually stunning, seamless loop, high quality music video aesthetic.`;
 
+    // Validate API token
+    if (!REPLICATE_API_TOKEN || REPLICATE_API_TOKEN === 'undefined') {
+      throw new Error('REPLICATE_API_TOKEN is not configured. Please set it in your .env file.');
+    }
+
     const response = await fetch(
       'https://api.replicate.com/v1/models/google/veo-3/predictions',
       {
@@ -326,6 +355,13 @@ Cinematic, visually stunning, seamless loop, high quality music video aesthetic.
         }),
       }
     );
+
+    // Check if response is JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      throw new Error(`Replicate API error (${response.status}): ${text.substring(0, 300)}`);
+    }
 
     const prediction = await response.json();
     
