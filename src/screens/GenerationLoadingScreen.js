@@ -11,6 +11,7 @@ import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withRepeat,
+    withSequence,
     withTiming
 } from 'react-native-reanimated';
 import { generateCompleteTrack } from '../services/replicate';
@@ -22,6 +23,7 @@ const STATUS_MESSAGES = [
   "Generating audio with AI...",
   "Creating cover art...",
   "Mixing and mastering...",
+  "Adding the finishing touches...",
   "Almost there...",
 ];
 
@@ -36,13 +38,16 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
     videoDescription = '',
   } = route.params || {};
 
-  const [progress, setProgress] = useState(0);
   const [statusIndex, setStatusIndex] = useState(0);
   const [error, setError] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const generationStarted = useRef(false);
   
   const pulse = useSharedValue(1);
   const rotation = useSharedValue(0);
+  const dotOpacity1 = useSharedValue(0.3);
+  const dotOpacity2 = useSharedValue(0.3);
+  const dotOpacity3 = useSharedValue(0.3);
 
   // Build tags/prompt from genre and vocal styles
   const buildTags = () => {
@@ -81,36 +86,72 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
   };
 
   useEffect(() => {
-    // Pulse animation
+    // Pulse animation for the main circle
     pulse.value = withRepeat(
-      withTiming(1.15, { duration: 1000, easing: Easing.ease }),
-      -1,
-      true
-    );
-
-    // Rotation animation
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 3000, easing: Easing.linear }),
+      withSequence(
+        withTiming(1.2, { duration: 800, easing: Easing.ease }),
+        withTiming(1, { duration: 800, easing: Easing.ease })
+      ),
       -1,
       false
     );
 
-    // Progress simulation (will be replaced by actual progress)
-    const progressInterval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 95) return 95; // Cap at 95% until generation completes
-        return prev + Math.random() * 3;
-      });
-    }, 500);
+    // Rotation animation for the outer ring
+    rotation.value = withRepeat(
+      withTiming(360, { duration: 2000, easing: Easing.linear }),
+      -1,
+      false
+    );
+
+    // Animated dots
+    const animateDots = () => {
+      dotOpacity1.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: 400 }),
+          withTiming(0.3, { duration: 400 })
+        ),
+        -1,
+        false
+      );
+      
+      setTimeout(() => {
+        dotOpacity2.value = withRepeat(
+          withSequence(
+            withTiming(1, { duration: 400 }),
+            withTiming(0.3, { duration: 400 })
+          ),
+          -1,
+          false
+        );
+      }, 200);
+      
+      setTimeout(() => {
+        dotOpacity3.value = withRepeat(
+          withSequence(
+            withTiming(1, { duration: 400 }),
+            withTiming(0.3, { duration: 400 })
+          ),
+          -1,
+          false
+        );
+      }, 400);
+    };
+    
+    animateDots();
 
     // Status message rotation
     const statusInterval = setInterval(() => {
       setStatusIndex(prev => (prev + 1) % STATUS_MESSAGES.length);
-    }, 3000);
+    }, 4000);
+
+    // Elapsed time counter
+    const timeInterval = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
 
     return () => {
-      clearInterval(progressInterval);
       clearInterval(statusInterval);
+      clearInterval(timeInterval);
     };
   }, []);
 
@@ -127,7 +168,7 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
         console.log('Starting generation with:', { tags, prompt, lyrics: formattedLyrics, genre });
 
         const result = await generateCompleteTrack({
-          title: 'Untitled Track', // Will be named by user later
+          title: 'Untitled Track',
           tags,
           prompt,
           lyrics: formattedLyrics,
@@ -135,15 +176,11 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
           duration: 60,
         });
 
-        setProgress(100);
-
         // Navigate to choice screen with both options
-        setTimeout(() => {
-          navigation.replace('ChooseTrack', {
-            generationResult: result,
-            originalParams: route.params,
-          });
-        }, 500);
+        navigation.replace('ChooseTrack', {
+          generationResult: result,
+          originalParams: route.params,
+        });
 
       } catch (err) {
         console.error('Generation error:', err);
@@ -154,12 +191,30 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
     startGeneration();
   }, []);
 
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const animatedPulseStyle = useAnimatedStyle(() => ({
     transform: [{ scale: pulse.value }],
   }));
 
   const animatedRotateStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value}deg` }],
+  }));
+
+  const dot1Style = useAnimatedStyle(() => ({
+    opacity: dotOpacity1.value,
+  }));
+
+  const dot2Style = useAnimatedStyle(() => ({
+    opacity: dotOpacity2.value,
+  }));
+
+  const dot3Style = useAnimatedStyle(() => ({
+    opacity: dotOpacity3.value,
   }));
 
   if (error) {
@@ -177,7 +232,7 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
             style={styles.retryButton}
             onPress={() => {
               setError(null);
-              setProgress(0);
+              setElapsedTime(0);
               generationStarted.current = false;
             }}
           >
@@ -197,20 +252,34 @@ export const GenerationLoadingScreen = ({ navigation, route }) => {
       <View style={styles.content}>
         <View style={styles.circleContainer}>
           <Animated.View style={[styles.outerRing, animatedRotateStyle]} />
-          <Animated.View style={[styles.circle, animatedPulseStyle]} />
+          <Animated.View style={[styles.circle, animatedPulseStyle]}>
+            <View style={styles.innerGlow} />
+          </Animated.View>
         </View>
         
         <Text style={styles.title}>Creating Your Masterpiece</Text>
-        <Text style={styles.status}>{STATUS_MESSAGES[statusIndex]}</Text>
-        <Text style={styles.percentage}>{Math.round(progress)}%</Text>
-
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
+        
+        <View style={styles.statusContainer}>
+          <Text style={styles.status}>{STATUS_MESSAGES[statusIndex]}</Text>
+          <View style={styles.dotsContainer}>
+            <Animated.View style={[styles.dot, dot1Style]} />
+            <Animated.View style={[styles.dot, dot2Style]} />
+            <Animated.View style={[styles.dot, dot3Style]} />
+          </View>
         </View>
 
-        <Text style={styles.tipText}>
-          💡 Tip: This usually takes 2-3 minutes
+        <Text style={styles.timeText}>
+          {formatTime(elapsedTime)}
         </Text>
+
+        <View style={styles.infoContainer}>
+          <Text style={styles.infoText}>
+            🎵 Generating two unique versions for you to choose from
+          </Text>
+          <Text style={styles.tipText}>
+            This usually takes 2-3 minutes
+          </Text>
+        </View>
       </View>
 
       <Pressable style={styles.cancelButton} onPress={() => navigation.goBack()}>
@@ -234,61 +303,87 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   circleContainer: {
-    width: 100,
-    height: 100,
+    width: 120,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
   },
   circle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
     backgroundColor: theme.colors.black,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: theme.colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  innerGlow: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   outerRing: {
     position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     borderWidth: 3,
     borderColor: theme.colors.gray.light,
     borderTopColor: theme.colors.black,
+    borderRightColor: theme.colors.gray.medium,
   },
   title: {
-    fontSize: 24,
-    fontWeight: theme.typography.weights.medium,
+    fontSize: 26,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.black,
-    marginBottom: 16,
+    marginBottom: 24,
     textAlign: 'center',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   status: {
     fontSize: 16,
     color: theme.colors.gray.dark,
-    marginBottom: 24,
     textAlign: 'center',
   },
-  percentage: {
+  dotsContainer: {
+    flexDirection: 'row',
+    marginLeft: 4,
+    gap: 3,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.colors.gray.dark,
+  },
+  timeText: {
     fontSize: 48,
     fontWeight: theme.typography.weights.thin,
     color: theme.colors.black,
-    marginBottom: 24,
+    marginBottom: 32,
+    fontVariant: ['tabular-nums'],
   },
-  progressBar: {
-    width: '100%',
-    height: 4,
-    backgroundColor: theme.colors.gray.light,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 24,
+  infoContainer: {
+    alignItems: 'center',
+    gap: 8,
   },
-  progressFill: {
-    height: '100%',
-    backgroundColor: theme.colors.black,
-    borderRadius: 2,
+  infoText: {
+    fontSize: 14,
+    color: theme.colors.black,
+    textAlign: 'center',
   },
   tipText: {
-    fontSize: 14,
+    fontSize: 13,
     color: theme.colors.gray.dark,
     textAlign: 'center',
   },

@@ -106,10 +106,11 @@ export const LibraryScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     if (route.params?.newTrack) {
-      setTracks(prev => [route.params.newTrack, ...prev]);
+      // Refresh tracks from database to get the full track data
+      fetchTracks();
       navigation.setParams({ newTrack: null });
     }
-  }, [route.params?.newTrack]);
+  }, [route.params?.newTrack, fetchTracks]);
 
   useEffect(() => {
     searchOpacity.value = withTiming(showFeed ? 0 : 1, { duration: 300 });

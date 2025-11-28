@@ -1,11 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
     ActivityIndicator,
     Image,
     Platform,
     Pressable,
     SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -29,12 +30,22 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
   const [playingOption, setPlayingOption] = useState(null);
   const [trackTitle, setTrackTitle] = useState('');
   const [saving, setSaving] = useState(false);
+  const [audioLoading, setAudioLoading] = useState(null);
   
   const soundRef = useRef(null);
   const option1Scale = useSharedValue(1);
   const option2Scale = useSharedValue(1);
 
   const { musicOptions, coverArtUrl, genre, lyrics, duration } = generationResult || {};
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
 
   const handlePlayPause = async (option) => {
     try {
@@ -54,7 +65,12 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
         ? musicOptions?.option1?.url 
         : musicOptions?.option2?.url;
 
-      if (!audioUrl) return;
+      if (!audioUrl) {
+        console.warn('No audio URL for option:', option);
+        return;
+      }
+
+      setAudioLoading(option);
 
       const { sound } = await Audio.Sound.createAsync(
         { uri: audioUrl },
@@ -63,6 +79,7 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
       
       soundRef.current = sound;
       setPlayingOption(option);
+      setAudioLoading(null);
 
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.didJustFinish) {
@@ -71,6 +88,8 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
       });
     } catch (error) {
       console.error('Error playing audio:', error);
+      setAudioLoading(null);
+      setPlayingOption(null);
     }
   };
 
@@ -113,8 +132,9 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
         await soundRef.current.unloadAsync();
       }
 
-      // Navigate to library with the new track
-      navigation.navigate('Library', { newTrack });
+      // Navigate back to library - need to go up to parent navigator
+      // Since we're in a modal (CreateFlow), we need to reset/navigate properly
+      navigation.getParent()?.navigate('Library', { newTrack });
     } catch (error) {
       console.error('Error saving track:', error);
       alert('Failed to save track. Please try again.');
@@ -190,12 +210,17 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
               <Pressable
                 style={styles.playButton}
                 onPress={() => handlePlayPause('option1')}
+                disabled={audioLoading === 'option1'}
               >
-                <Ionicons
-                  name={playingOption === 'option1' ? 'pause' : 'play'}
-                  size={24}
-                  color={theme.colors.white}
-                />
+                {audioLoading === 'option1' ? (
+                  <ActivityIndicator size="small" color={theme.colors.white} />
+                ) : (
+                  <Ionicons
+                    name={playingOption === 'option1' ? 'pause' : 'play'}
+                    size={24}
+                    color={theme.colors.white}
+                  />
+                )}
               </Pressable>
 
               {selectedOption === 'option1' && (
@@ -227,12 +252,17 @@ export const ChooseTrackScreen = ({ navigation, route }) => {
               <Pressable
                 style={styles.playButton}
                 onPress={() => handlePlayPause('option2')}
+                disabled={audioLoading === 'option2'}
               >
-                <Ionicons
-                  name={playingOption === 'option2' ? 'pause' : 'play'}
-                  size={24}
-                  color={theme.colors.white}
-                />
+                {audioLoading === 'option2' ? (
+                  <ActivityIndicator size="small" color={theme.colors.white} />
+                ) : (
+                  <Ionicons
+                    name={playingOption === 'option2' ? 'pause' : 'play'}
+                    size={24}
+                    color={theme.colors.white}
+                  />
+                )}
               </Pressable>
 
               {selectedOption === 'option2' && (
