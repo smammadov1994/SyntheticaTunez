@@ -63,6 +63,54 @@ export const updateProfile = async (updates) => {
   return data;
 };
 
+/**
+ * Check if a username is available
+ */
+export const checkUsernameAvailability = async (username) => {
+  if (!username || username.length < 3) return false;
+  
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', username)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking username:', error);
+    return false;
+  }
+
+  return !data; // Returns true if no user found (available)
+};
+
+/**
+ * Complete onboarding for a user
+ */
+export const completeOnboarding = async (username, bio, avatarUrl) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const updates = {
+    username,
+    bio,
+    avatar_url: avatarUrl,
+    is_onboarded: true,
+    updated_at: new Date(),
+  };
+
+  const { error } = await supabase
+    .from('profiles')
+    .update(updates)
+    .eq('id', user.id);
+
+  if (error) {
+    console.error('Error completing onboarding:', error);
+    return false;
+  }
+
+  return true;
+};
+
 // ==================== TRACKS ====================
 
 /**
@@ -174,7 +222,7 @@ export const hasUserLikedTrack = async (trackId) => {
     .select('id')
     .eq('track_id', trackId)
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
   return !error && data !== null;
 };

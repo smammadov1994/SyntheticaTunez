@@ -1,27 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { 
-  ActivityIndicator,
-  FlatList, 
-  Pressable, 
-  RefreshControl,
-  SafeAreaView, 
-  StyleSheet, 
-  Text, 
-  View 
+import {
+    ActivityIndicator,
+    FlatList,
+    Pressable,
+    RefreshControl,
+    SafeAreaView,
+    StyleSheet,
+    Text,
+    View
 } from 'react-native';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withTiming,
-  FadeIn,
-  FadeInDown
+import Animated, {
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming
 } from 'react-native-reanimated';
 import { FeedSection } from '../components/FeedSection';
 import { SearchBar } from '../components/SearchBar';
 import { SideMenu } from '../components/SideMenu';
 import { TrackTile } from '../components/TrackTile';
-import { getUserTracks, getTracksByArtist, getTracksByGenre } from '../services/database';
+import { getTracksByArtist, getTracksByGenre, getUserTracks } from '../services/database';
 import { theme } from '../theme';
 
 export const LibraryScreen = ({ navigation, route }) => {
@@ -344,8 +343,8 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     flex: 1,
     gap: 8,
     marginRight: 8,

@@ -166,6 +166,17 @@ export const NowPlayingScreen = ({ navigation, route }) => {
     }
   };
 
+  // Sync video with audio playback
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.playAsync();
+      } else {
+        videoRef.current.pauseAsync();
+      }
+    }
+  }, [isPlaying]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -275,7 +286,7 @@ export const NowPlayingScreen = ({ navigation, route }) => {
   const textColorStyle = hasVideo ? styles.textLight : {};
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, hasVideo && { backgroundColor: 'black' }]}>
       {/* Video Background */}
       {hasVideo && (
         <Video
@@ -283,9 +294,8 @@ export const NowPlayingScreen = ({ navigation, route }) => {
           source={{ uri: displayTrack.video_url }}
           style={styles.videoBackground}
           resizeMode={ResizeMode.COVER}
-          isLooping
-          shouldPlay
-          isMuted
+          isLooping={true}
+          isMuted={true}
         />
       )}
       
@@ -345,7 +355,7 @@ export const NowPlayingScreen = ({ navigation, route }) => {
                 )}
 
                 <View style={styles.trackInfo}>
-                <Text style={styles.title}>{displayTrack.title}</Text>
+                <Text style={[styles.title, textColorStyle]}>{displayTrack.title}</Text>
                 <Pressable 
                   style={styles.artistRow}
                   onPress={() => {
@@ -358,22 +368,22 @@ export const NowPlayingScreen = ({ navigation, route }) => {
                       style={styles.artistAvatar}
                     />
                   )}
-                  <Text style={styles.artist}>
+                  <Text style={[styles.artist, textColorStyle]}>
                     @{displayTrack.profiles?.username || displayTrack.artist_name || 'unknown'}
                   </Text>
                 </Pressable>
                 <View style={styles.statsRow}>
                   <View style={styles.stat}>
-                    <Ionicons name="heart" size={14} color={theme.colors.gray.dark} />
-                    <Text style={styles.statText}>{likeCount}</Text>
+                    <Ionicons name="heart" size={14} color={hasVideo ? theme.colors.white : theme.colors.gray.dark} />
+                    <Text style={[styles.statText, textColorStyle]}>{likeCount}</Text>
                   </View>
                   <View style={styles.stat}>
-                    <Ionicons name="chatbubble" size={14} color={theme.colors.gray.dark} />
-                    <Text style={styles.statText}>{comments.length}</Text>
+                    <Ionicons name="chatbubble" size={14} color={hasVideo ? theme.colors.white : theme.colors.gray.dark} />
+                    <Text style={[styles.statText, textColorStyle]}>{comments.length}</Text>
                   </View>
                   {displayTrack.genre && (
-                    <View style={styles.genreBadge}>
-                      <Text style={styles.genreText}>{displayTrack.genre}</Text>
+                    <View style={[styles.genreBadge, hasVideo && { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
+                      <Text style={[styles.genreText, hasVideo && { color: theme.colors.white }]}>{displayTrack.genre}</Text>
                     </View>
                   )}
                 </View>
@@ -478,6 +488,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: theme.colors.white,
+  },
+  safeArea: {
+    flex: 1,
+    zIndex: 2,
   },
   loadingContainer: {
     flex: 1,
@@ -713,5 +727,18 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: theme.colors.gray.medium,
+  },
+  // Video specific styles
+  videoBackground: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
+  },
+  videoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    zIndex: 1,
+  },
+  textLight: {
+    color: theme.colors.white,
   },
 });

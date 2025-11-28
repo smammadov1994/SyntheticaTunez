@@ -337,7 +337,7 @@ Cinematic, visually stunning, seamless loop, high quality music video aesthetic.
     }
 
     const response = await fetch(
-      'https://api.replicate.com/v1/models/google/veo-3/predictions',
+      'https://api.replicate.com/v1/predictions',
       {
         method: 'POST',
         headers: {
@@ -345,6 +345,7 @@ Cinematic, visually stunning, seamless loop, high quality music video aesthetic.
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          version: '5e80c73750ffc5dfbe5cee2d694c6ed3da7706660d9132613e6736443b365464',
           input: {
             prompt: enhancedPrompt,
             duration: 4, // 4 seconds for looping
