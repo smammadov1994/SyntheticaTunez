@@ -1,19 +1,39 @@
-import Replicate from 'replicate';
+import { supabase } from '../utils/supabase';
 
-// Get Replicate API token from environment
-const replicateToken = process.env.EXPO_PUBLIC_REPLICATE_API_TOKEN || '';
+// Get the Supabase URL for edge functions
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://vmjskjejkdxslnihrmzh.supabase.co';
+const EDGE_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/generate-music`;
 
-if (!replicateToken) {
-  console.warn(
-    '⚠️ EXPO_PUBLIC_REPLICATE_API_TOKEN is not set. Please add it to your .env file:\n' +
-    'EXPO_PUBLIC_REPLICATE_API_TOKEN=your_replicate_api_token_here'
-  );
-}
+/**
+ * Call the Supabase Edge Function for AI generation
+ * This proxies requests to Replicate to avoid CORS issues
+ */
+const callEdgeFunction = async (body) => {
+  try {
+    // Get the current session for auth
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token || ''}`,
+      },
+      body: JSON.stringify(body),
+    });
 
-// Initialize Replicate client
-const replicate = new Replicate({
-  auth: replicateToken,
-});
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || 'Generation failed');
+    }
+
+    return result.data;
+  } catch (error) {
+    console.error('Edge function error:', error);
+    throw error;
+  }
+};
 
 // ==================== MUSIC GENERATION ====================
 
@@ -28,38 +48,12 @@ const replicate = new Replicate({
  * @returns {Promise<string>} URL to generated audio file
  */
 export const generateMusicAceStep = async ({ tags, lyrics, duration = 60 }) => {
-  try {
-    const output = await replicate.run(
-      "lucataco/ace-step:280fc4f9ee507577f880a167f639c02622421d8fecf492454320311217b688f1",
-      {
-        input: {
-          seed: -1, // Random seed for variety
-          tags,
-          lyrics,
-          duration,
-          scheduler: "euler",
-          guidance_type: "apg",
-          guidance_scale: 15,
-          number_of_steps: 60,
-          granularity_scale: 10,
-          guidance_interval: 0.5,
-          min_guidance_scale: 3,
-          tag_guidance_scale: 0,
-          lyric_guidance_scale: 0,
-          guidance_interval_decay: 0,
-        }
-      }
-    );
-
-    // Return the URL of the generated audio
-    if (output && typeof output.url === 'function') {
-      return output.url();
-    }
-    return output;
-  } catch (error) {
-    console.error('Error generating music with ACE-Step:', error);
-    throw error;
-  }
+  return callEdgeFunction({
+    action: 'generate_music_ace',
+    tags,
+    lyrics,
+    duration,
+  });
 };
 
 /**
@@ -72,29 +66,11 @@ export const generateMusicAceStep = async ({ tags, lyrics, duration = 60 }) => {
  * @returns {Promise<string>} URL to generated audio file
  */
 export const generateMusicMiniMax = async ({ prompt, lyrics }) => {
-  try {
-    const output = await replicate.run(
-      "minimax/music-1.5",
-      {
-        input: {
-          lyrics,
-          prompt,
-          bitrate: 256000,
-          sample_rate: 44100,
-          audio_format: "mp3",
-        }
-      }
-    );
-
-    // Return the URL of the generated audio
-    if (output && typeof output.url === 'function') {
-      return output.url();
-    }
-    return output;
-  } catch (error) {
-    console.error('Error generating music with MiniMax:', error);
-    throw error;
-  }
+  return callEdgeFunction({
+    action: 'generate_music_minimax',
+    prompt,
+    lyrics,
+  });
 };
 
 /**
@@ -106,32 +82,27 @@ export const generateMusicMiniMax = async ({ prompt, lyrics }) => {
  * @param {string} params.prompt - Genre/style description for MiniMax
  * @param {string} params.lyrics - Lyrics with structure tags
  * @param {number} params.duration - Duration in seconds (only used by ACE-Step)
- * @returns {Promise<{option1: string, option2: string}>} URLs to both generated audio files
+ * @returns {Promise<{option1: Object, option2: Object}>} Both generated audio options
  */
 export const generateMusicOptions = async ({ tags, prompt, lyrics, duration = 60 }) => {
-  try {
-    // Run both models in parallel for faster generation
-    const [option1, option2] = await Promise.all([
-      generateMusicAceStep({ tags, lyrics, duration }),
-      generateMusicMiniMax({ prompt, lyrics }),
-    ]);
+  // Run both in parallel via separate calls
+  const [option1, option2] = await Promise.all([
+    generateMusicAceStep({ tags, lyrics, duration }),
+    generateMusicMiniMax({ prompt, lyrics }),
+  ]);
 
-    return {
-      option1: {
-        url: option1,
-        model: 'ace-step',
-        description: 'Electronic/Synth Style',
-      },
-      option2: {
-        url: option2,
-        model: 'minimax',
-        description: 'Polished/Smooth Style',
-      },
-    };
-  } catch (error) {
-    console.error('Error generating music options:', error);
-    throw error;
-  }
+  return {
+    option1: {
+      url: option1,
+      model: 'ace-step',
+      description: 'Electronic/Synth Style',
+    },
+    option2: {
+      url: option2,
+      model: 'minimax',
+      description: 'Polished/Smooth Style',
+    },
+  };
 };
 
 // ==================== COVER ART GENERATION ====================
@@ -141,41 +112,13 @@ export const generateMusicOptions = async ({ tags, prompt, lyrics, duration = 60
  * 
  * @param {Object} params
  * @param {string} params.prompt - Description of the cover art to generate
- * @param {number} params.width - Image width (default: 1024 for square album art)
- * @param {number} params.height - Image height (default: 1024 for square album art)
  * @returns {Promise<string>} URL to generated image
  */
-export const generateCoverArt = async ({ prompt, width = 1024, height = 1024 }) => {
-  try {
-    const output = await replicate.run(
-      "bytedance/seedream-4",
-      {
-        input: {
-          size: "1K",
-          width,
-          height,
-          prompt: `Album cover art: ${prompt}. Professional music album artwork, high quality, artistic, visually striking.`,
-          max_images: 1,
-          image_input: [],
-          aspect_ratio: "1:1",
-          enhance_prompt: true,
-          sequential_image_generation: "disabled",
-        }
-      }
-    );
-
-    // Return the URL of the generated image
-    if (Array.isArray(output) && output[0]) {
-      if (typeof output[0].url === 'function') {
-        return output[0].url();
-      }
-      return output[0];
-    }
-    return output;
-  } catch (error) {
-    console.error('Error generating cover art:', error);
-    throw error;
-  }
+export const generateCoverArt = async ({ prompt }) => {
+  return callEdgeFunction({
+    action: 'generate_cover_art',
+    prompt,
+  });
 };
 
 /**
@@ -189,16 +132,19 @@ export const generateCoverArt = async ({ prompt, width = 1024, height = 1024 }) 
  * @returns {Promise<string>} URL to generated image
  */
 export const generateCoverArtFromSong = async ({ title, genre, mood = '' }) => {
-  const moodText = mood ? `, ${mood} mood` : '';
-  const prompt = `${genre} music album cover for a song called "${title}"${moodText}. Abstract, artistic, modern design with vibrant colors and dynamic composition.`;
-  
-  return generateCoverArt({ prompt });
+  return callEdgeFunction({
+    action: 'generate_cover_art',
+    title,
+    genre,
+    prompt: mood ? `${mood} mood` : undefined,
+  });
 };
 
 // ==================== FULL TRACK GENERATION ====================
 
 /**
  * Generate a complete track with music options and cover art
+ * This is the most efficient method - runs all generations in parallel on the server
  * 
  * @param {Object} params
  * @param {string} params.title - Song title
@@ -217,25 +163,15 @@ export const generateCompleteTrack = async ({
   genre, 
   duration = 60 
 }) => {
-  try {
-    // Generate music options and cover art in parallel
-    const [musicOptions, coverArtUrl] = await Promise.all([
-      generateMusicOptions({ tags, prompt, lyrics, duration }),
-      generateCoverArtFromSong({ title, genre }),
-    ]);
-
-    return {
-      title,
-      genre,
-      lyrics,
-      duration,
-      coverArtUrl,
-      musicOptions,
-    };
-  } catch (error) {
-    console.error('Error generating complete track:', error);
-    throw error;
-  }
+  return callEdgeFunction({
+    action: 'generate_complete',
+    title,
+    tags,
+    prompt,
+    lyrics,
+    genre,
+    duration,
+  });
 };
 
 export default {
@@ -246,4 +182,3 @@ export default {
   generateCoverArtFromSong,
   generateCompleteTrack,
 };
-
