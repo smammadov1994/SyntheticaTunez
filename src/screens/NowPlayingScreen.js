@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { Audio, ResizeMode, Video } from 'expo-av';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -12,30 +13,27 @@ import {
     TextInput,
     View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { 
-  useAnimatedStyle, 
-  useSharedValue, 
-  withSpring,
-  withTiming,
-  FadeIn,
-  FadeInDown,
-  SlideInRight
+import Animated, {
+    FadeIn,
+    FadeInDown,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming
 } from 'react-native-reanimated';
-import { Audio } from 'expo-av';
-import { Video, ResizeMode } from 'expo-av';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { PlaybackControls } from '../components/PlaybackControls';
-import { 
-  getTrackById, 
-  likeTrack, 
-  unlikeTrack, 
-  hasUserLikedTrack,
-  getTrackComments,
-  addComment,
-  getTrackLikeCount
+import {
+    addComment,
+    getTrackById,
+    getTrackComments,
+    getTrackLikeCount,
+    hasUserLikedTrack,
+    likeTrack,
+    unlikeTrack
 } from '../services/database';
-import { supabase } from '../utils/supabase';
 import { theme } from '../theme';
+import { supabase } from '../utils/supabase';
 
 export const NowPlayingScreen = ({ navigation, route }) => {
   const trackId = route.params?.trackId;
@@ -340,82 +338,83 @@ export const NowPlayingScreen = ({ navigation, route }) => {
                 <View style={styles.artworkContainer}>
                   <Image
                     source={{ uri: displayTrack.artwork_url || 'https://picsum.photos/600/600' }}
-                style={styles.artwork}
-              />
-            </View>
-
-            <View style={styles.trackInfo}>
-              <Text style={styles.title}>{displayTrack.title}</Text>
-              <Pressable 
-                style={styles.artistRow}
-                onPress={() => {
-                  // Could navigate to artist profile in the future
-                }}
-              >
-                {displayTrack.profiles?.avatar_url && (
-                  <Image 
-                    source={{ uri: displayTrack.profiles.avatar_url }} 
-                    style={styles.artistAvatar}
+                    style={styles.artwork}
                   />
-                )}
-                <Text style={styles.artist}>
-                  @{displayTrack.profiles?.username || displayTrack.artist_name || 'unknown'}
-                </Text>
-              </Pressable>
-              <View style={styles.statsRow}>
-                <View style={styles.stat}>
-                  <Ionicons name="heart" size={14} color={theme.colors.gray.dark} />
-                  <Text style={styles.statText}>{likeCount}</Text>
                 </View>
-                <View style={styles.stat}>
-                  <Ionicons name="chatbubble" size={14} color={theme.colors.gray.dark} />
-                  <Text style={styles.statText}>{comments.length}</Text>
-                </View>
-                {displayTrack.genre && (
-                  <View style={styles.genreBadge}>
-                    <Text style={styles.genreText}>{displayTrack.genre}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
+              )}
 
-            <View style={styles.controlsContainer}>
-              <View style={styles.progressContainer}>
+              <View style={styles.trackInfo}>
+                <Text style={styles.title}>{displayTrack.title}</Text>
                 <Pressable 
-                  style={styles.progressBar}
-                  onPress={(e) => {
-                    // Calculate seek position from press
-                    const { locationX } = e.nativeEvent;
-                    const barWidth = e.target?.clientWidth || 300;
-                    const seekPercent = locationX / barWidth;
-                    const seekTime = seekPercent * (audioDuration || displayTrack.duration || 0);
-                    seekTo(seekTime);
+                  style={styles.artistRow}
+                  onPress={() => {
+                    // Could navigate to artist profile in the future
                   }}
                 >
-                  <Animated.View style={[styles.progressFill, progressAnimatedStyle]} />
-                </Pressable>
-                <View style={styles.timeRow}>
-                  <Text style={styles.timeText}>{formatTime(currentPosition)}</Text>
-                  <Text style={styles.timeText}>
-                    {formatTime(audioDuration || displayTrack.duration || 0)}
+                  {displayTrack.profiles?.avatar_url && (
+                    <Image 
+                      source={{ uri: displayTrack.profiles.avatar_url }} 
+                      style={styles.artistAvatar}
+                    />
+                  )}
+                  <Text style={styles.artist}>
+                    @{displayTrack.profiles?.username || displayTrack.artist_name || 'unknown'}
                   </Text>
+                </Pressable>
+                <View style={styles.statsRow}>
+                  <View style={styles.stat}>
+                    <Ionicons name="heart" size={14} color={theme.colors.gray.dark} />
+                    <Text style={styles.statText}>{likeCount}</Text>
+                  </View>
+                  <View style={styles.stat}>
+                    <Ionicons name="chatbubble" size={14} color={theme.colors.gray.dark} />
+                    <Text style={styles.statText}>{comments.length}</Text>
+                  </View>
+                  {displayTrack.genre && (
+                    <View style={styles.genreBadge}>
+                      <Text style={styles.genreText}>{displayTrack.genre}</Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
-              <PlaybackControls
-                isPlaying={isPlaying}
-                isLoading={audioLoading}
-                onPlayPause={handlePlayPause}
-                onNext={() => {}}
-                onPrev={() => {}}
-                disabled={!displayTrack.audio_url}
-              />
-              
-              {!displayTrack.audio_url && (
-                <Text style={styles.noAudioText}>No audio available for this track</Text>
-              )}
+              <View style={styles.controlsContainer}>
+                <View style={styles.progressContainer}>
+                  <Pressable 
+                    style={styles.progressBar}
+                    onPress={(e) => {
+                      // Calculate seek position from press
+                      const { locationX } = e.nativeEvent;
+                      const barWidth = e.target?.clientWidth || 300;
+                      const seekPercent = locationX / barWidth;
+                      const seekTime = seekPercent * (audioDuration || displayTrack.duration || 0);
+                      seekTo(seekTime);
+                    }}
+                  >
+                    <Animated.View style={[styles.progressFill, progressAnimatedStyle]} />
+                  </Pressable>
+                  <View style={styles.timeRow}>
+                    <Text style={styles.timeText}>{formatTime(currentPosition)}</Text>
+                    <Text style={styles.timeText}>
+                      {formatTime(audioDuration || displayTrack.duration || 0)}
+                    </Text>
+                  </View>
+                </View>
+
+                <PlaybackControls
+                  isPlaying={isPlaying}
+                  isLoading={audioLoading}
+                  onPlayPause={handlePlayPause}
+                  onNext={() => {}}
+                  onPrev={() => {}}
+                  disabled={!displayTrack.audio_url}
+                />
+                
+                {!displayTrack.audio_url && (
+                  <Text style={styles.noAudioText}>No audio available for this track</Text>
+                )}
+              </View>
             </View>
-          </View>
         ) : (
           <Animated.View 
             entering={FadeIn.duration(300)}
@@ -469,6 +468,7 @@ export const NowPlayingScreen = ({ navigation, route }) => {
         )}
       </KeyboardAvoidingView>
     </SafeAreaView>
+    </View>
   );
 };
 
