@@ -334,16 +334,17 @@ export const NowPlayingScreen = ({ navigation, route }) => {
           {!showComments ? (
             <View style={styles.content}>
               {/* Only show artwork if no video */}
-              {!hasVideo && (
-                <View style={styles.artworkContainer}>
-                  <Image
-                    source={{ uri: displayTrack.artwork_url || 'https://picsum.photos/600/600' }}
-                    style={styles.artwork}
-                  />
-                </View>
-              )}
+              <>
+                {!hasVideo && (
+                  <View style={styles.artworkContainer}>
+                    <Image
+                      source={{ uri: displayTrack.artwork_url || 'https://picsum.photos/600/600' }}
+                      style={styles.artwork}
+                    />
+                  </View>
+                )}
 
-              <View style={styles.trackInfo}>
+                <View style={styles.trackInfo}>
                 <Text style={styles.title}>{displayTrack.title}</Text>
                 <Pressable 
                   style={styles.artistRow}
@@ -414,8 +415,9 @@ export const NowPlayingScreen = ({ navigation, route }) => {
                   <Text style={styles.noAudioText}>No audio available for this track</Text>
                 )}
               </View>
+            </>
             </View>
-        ) : (
+          ) : (
           <Animated.View 
             entering={FadeIn.duration(300)}
             style={styles.commentsContainer}

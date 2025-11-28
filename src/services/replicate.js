@@ -27,6 +27,13 @@ const waitForPrediction = async (predictionUrl) => {
       },
     });
 
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      throw new Error(`API returned non-JSON response (${response.status}): ${text.substring(0, 200)}`);
+    }
+
     const prediction = await response.json();
 
     if (prediction.status === 'succeeded') {
@@ -57,6 +64,11 @@ const waitForPrediction = async (predictionUrl) => {
  */
 export const generateMusicAceStep = async ({ tags, lyrics, duration = 60 }) => {
   try {
+    // Validate API token
+    if (!REPLICATE_API_TOKEN || REPLICATE_API_TOKEN === 'undefined') {
+      throw new Error('REPLICATE_API_TOKEN is not configured. Please set it in your .env file.');
+    }
+
     const response = await fetch(
       'https://api.replicate.com/v1/predictions',
       {
@@ -307,8 +319,8 @@ Cinematic, visually stunning, seamless loop, high quality music video aesthetic.
           input: {
             prompt: enhancedPrompt,
             duration: 4, // 4 seconds for looping
-            resolution: '1080p', // HD quality for background video
-            aspect_ratio: '16:9', // Horizontal/landscape
+            resolution: '1080p', // High quality 1080p
+            aspect_ratio: '16:9', // Horizontal/landscape format
             generate_audio: false, // We have our own audio
           },
         }),
