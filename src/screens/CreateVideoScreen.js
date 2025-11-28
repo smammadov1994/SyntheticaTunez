@@ -15,12 +15,36 @@ import { ProgressDots } from '../components/ProgressDots';
 import { theme } from '../theme';
 
 const VIDEO_STYLES = [
-  "Abstract", "Cinematic", "Animated", "Realistic", "Psychedelic"
+  "Abstract", "Cinematic", "Animated", "Realistic", "Psychedelic",
+  "Retro", "Minimalist", "Futuristic", "Nature", "Urban"
 ];
 
-export const CreateVideoScreen = ({ navigation }) => {
+export const CreateVideoScreen = ({ navigation, route }) => {
+  const { 
+    lyrics = '', 
+    genre = 'Pop', 
+    vocalStyles = [], 
+    vocalDetails = '' 
+  } = route.params || {};
+  
   const [createVideo, setCreateVideo] = useState(null); // true, false, or null
   const [selectedStyle, setSelectedStyle] = useState(null);
+  const [videoDescription, setVideoDescription] = useState('');
+
+  const handleGenerate = () => {
+    // Build the generation params
+    const generationParams = {
+      lyrics,
+      genre,
+      vocalStyles,
+      vocalDetails,
+      createVideo,
+      videoStyle: selectedStyle,
+      videoDescription,
+    };
+
+    navigation.navigate('GenerationLoading', generationParams);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -70,25 +94,51 @@ export const CreateVideoScreen = ({ navigation }) => {
             <TextInput
               style={styles.input}
               multiline
-              placeholder="Describe the visual style..."
+              placeholder="Describe the visual style... (e.g., 'neon lights, city at night')"
               placeholderTextColor={theme.colors.gray.medium}
+              value={videoDescription}
+              onChangeText={setVideoDescription}
               textAlignVertical="top"
               selectionColor={theme.colors.black}
             />
           </View>
         )}
+
+        {/* Summary of selections */}
+        <View style={styles.summarySection}>
+          <Text style={styles.sectionTitle}>Your Track</Text>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryLabel}>Genre:</Text>
+            <Text style={styles.summaryValue}>{genre}</Text>
+          </View>
+          {lyrics && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Lyrics:</Text>
+              <Text style={styles.summaryValue} numberOfLines={1}>
+                {lyrics.substring(0, 50)}...
+              </Text>
+            </View>
+          )}
+          {vocalStyles.length > 0 && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>Vocals:</Text>
+              <Text style={styles.summaryValue}>{vocalStyles.join(', ')}</Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <Pressable
           style={[styles.button, createVideo === null && styles.buttonDisabled]}
-          onPress={() => navigation.navigate('GenerationLoading')}
+          onPress={handleGenerate}
+          disabled={createVideo === null}
         >
           <Text style={[styles.buttonText, createVideo === null && styles.buttonTextDisabled]}>
             Generate Track
           </Text>
         </Pressable>
-        <Text style={styles.estimateText}>~2-3 minutes</Text>
+        <Text style={styles.estimateText}>~2-3 minutes • Uses 1 credit</Text>
       </View>
     </SafeAreaView>
   );
@@ -136,7 +186,7 @@ const styles = StyleSheet.create({
   },
   card: {
     flex: 1,
-    height: 160,
+    height: 140,
     borderRadius: theme.borderRadius.md,
     backgroundColor: theme.colors.gray.light,
     justifyContent: 'center',
@@ -164,6 +214,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: theme.typography.weights.medium,
     marginBottom: 16,
+    color: theme.colors.black,
   },
   pillsContainer: {
     flexDirection: 'row',
@@ -183,6 +234,27 @@ const styles = StyleSheet.create({
         outlineStyle: 'none',
       },
     }),
+  },
+  summarySection: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: theme.colors.gray.light,
+    borderRadius: theme.borderRadius.sm,
+  },
+  summaryItem: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: theme.colors.gray.dark,
+    width: 70,
+  },
+  summaryValue: {
+    fontSize: 14,
+    color: theme.colors.black,
+    fontWeight: theme.typography.weights.medium,
+    flex: 1,
   },
   footer: {
     padding: 24,

@@ -17,10 +17,13 @@ import { Ionicons } from '@expo/vector-icons';
 
 const VOCAL_STYLES = [
   "Male", "Female", "Raspy", "Smooth", 
-  "Powerful", "Soft", "Energetic", "Melancholic"
+  "Powerful", "Soft", "Energetic", "Melancholic",
+  "Falsetto", "Deep", "Breathy", "Clear"
 ];
 
-export const CreateVocalScreen = ({ navigation }) => {
+export const CreateVocalScreen = ({ navigation, route }) => {
+  const { lyrics = '', genre = 'Pop' } = route.params || {};
+  
   const [selectedStyles, setSelectedStyles] = useState([]);
   const [details, setDetails] = useState('');
 
@@ -32,6 +35,24 @@ export const CreateVocalScreen = ({ navigation }) => {
     }
   };
 
+  const handleNext = () => {
+    navigation.navigate('CreateVideo', {
+      lyrics,
+      genre,
+      vocalStyles: selectedStyles,
+      vocalDetails: details,
+    });
+  };
+
+  const handleSkip = () => {
+    navigation.navigate('CreateVideo', {
+      lyrics,
+      genre,
+      vocalStyles: [],
+      vocalDetails: '',
+    });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -39,7 +60,7 @@ export const CreateVocalScreen = ({ navigation }) => {
           <Ionicons name="chevron-back" size={24} color={theme.colors.black} />
         </Pressable>
         <ProgressDots totalSteps={4} currentStep={3} />
-        <Pressable style={styles.skipButton} onPress={() => navigation.navigate('CreateVideo')}>
+        <Pressable style={styles.skipButton} onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
         </Pressable>
       </View>
@@ -62,7 +83,7 @@ export const CreateVocalScreen = ({ navigation }) => {
         <TextInput
           style={styles.input}
           multiline
-          placeholder="Add more details about the voice..."
+          placeholder="Add more details about the voice... (e.g., 'soulful with vibrato')"
           placeholderTextColor={theme.colors.gray.medium}
           value={details}
           onChangeText={setDetails}
@@ -73,10 +94,10 @@ export const CreateVocalScreen = ({ navigation }) => {
 
       <View style={styles.footer}>
         <Pressable
-          style={[styles.button, (selectedStyles.length === 0 && !details) && styles.buttonDisabled]}
-          onPress={() => navigation.navigate('CreateVideo')}
+          style={styles.button}
+          onPress={handleNext}
         >
-          <Text style={[styles.buttonText, (selectedStyles.length === 0 && !details) && styles.buttonTextDisabled]}>
+          <Text style={styles.buttonText}>
             Next
           </Text>
         </Pressable>
@@ -160,15 +181,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  buttonDisabled: {
-    backgroundColor: theme.colors.gray.light,
-  },
   buttonText: {
     color: theme.colors.white,
     fontSize: 16,
     fontWeight: theme.typography.weights.medium,
-  },
-  buttonTextDisabled: {
-    color: theme.colors.gray.dark,
   },
 });

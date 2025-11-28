@@ -16,13 +16,31 @@ import { Ionicons } from '@expo/vector-icons';
 
 const GENRES = [
   "Hip-Hop", "Pop", "Rock", "Electronic", "R&B", 
-  "Jazz", "Country", "Classical", "Lo-fi", "Ambient"
+  "Jazz", "Country", "Classical", "Lo-fi", "Ambient",
+  "Synthwave", "Indie", "Metal", "Folk", "Soul"
 ];
 
-export const CreateGenreScreen = ({ navigation }) => {
+export const CreateGenreScreen = ({ navigation, route }) => {
+  const { lyrics = '' } = route.params || {};
+  
   const [selectedGenre, setSelectedGenre] = useState(null);
   const [customGenre, setCustomGenre] = useState('');
   const [isCustomInputVisible, setIsCustomInputVisible] = useState(false);
+
+  const handleNext = () => {
+    const genre = customGenre || selectedGenre;
+    navigation.navigate('CreateVocal', { 
+      lyrics,
+      genre,
+    });
+  };
+
+  const handleSkip = () => {
+    navigation.navigate('CreateVocal', { 
+      lyrics,
+      genre: 'Pop', // Default genre
+    });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -31,7 +49,7 @@ export const CreateGenreScreen = ({ navigation }) => {
           <Ionicons name="chevron-back" size={24} color={theme.colors.black} />
         </Pressable>
         <ProgressDots totalSteps={4} currentStep={2} />
-        <Pressable style={styles.skipButton} onPress={() => navigation.navigate('CreateVocal')}>
+        <Pressable style={styles.skipButton} onPress={handleSkip}>
           <Text style={styles.skipText}>Skip</Text>
         </Pressable>
       </View>
@@ -48,6 +66,7 @@ export const CreateGenreScreen = ({ navigation }) => {
               selected={selectedGenre === genre}
               onPress={() => {
                 setSelectedGenre(genre);
+                setCustomGenre('');
                 setIsCustomInputVisible(false);
               }}
             />
@@ -61,10 +80,13 @@ export const CreateGenreScreen = ({ navigation }) => {
         ) : (
           <TextInput
             style={styles.customInput}
-            placeholder="Describe your genre..."
+            placeholder="Describe your genre... (e.g., 'dreamy synth-pop with 80s vibes')"
             placeholderTextColor={theme.colors.gray.medium}
             value={customGenre}
-            onChangeText={setCustomGenre}
+            onChangeText={(text) => {
+              setCustomGenre(text);
+              setSelectedGenre(null);
+            }}
             autoFocus
             selectionColor={theme.colors.black}
           />
@@ -74,7 +96,8 @@ export const CreateGenreScreen = ({ navigation }) => {
       <View style={styles.footer}>
         <Pressable
           style={[styles.button, (!selectedGenre && !customGenre) && styles.buttonDisabled]}
-          onPress={() => navigation.navigate('CreateVocal')}
+          onPress={handleNext}
+          disabled={!selectedGenre && !customGenre}
         >
           <Text style={[styles.buttonText, (!selectedGenre && !customGenre) && styles.buttonTextDisabled]}>
             Next

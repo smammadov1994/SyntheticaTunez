@@ -17,6 +17,14 @@ import { Ionicons } from '@expo/vector-icons';
 export const CreateLyricsScreen = ({ navigation }) => {
   const [lyrics, setLyrics] = useState('');
 
+  const handleNext = () => {
+    navigation.navigate('CreateGenre', { lyrics });
+  };
+
+  const handleSkip = () => {
+    navigation.navigate('CreateGenre', { lyrics: '' });
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -28,19 +36,21 @@ export const CreateLyricsScreen = ({ navigation }) => {
             <Ionicons name="close" size={24} color={theme.colors.black} />
           </Pressable>
           <ProgressDots totalSteps={4} currentStep={1} />
-          <Pressable style={styles.skipButton} onPress={() => navigation.navigate('CreateGenre')}>
+          <Pressable style={styles.skipButton} onPress={handleSkip}>
             <Text style={styles.skipText}>Skip</Text>
           </Pressable>
         </View>
 
         <View style={styles.mainContent}>
           <Text style={styles.title}>Add Your Lyrics</Text>
-          <Text style={styles.subtitle}>Paste or type the lyrics for your song</Text>
+          <Text style={styles.subtitle}>
+            Use tags like [verse], [chorus], [bridge] to structure your song
+          </Text>
 
           <TextInput
             style={styles.input}
             multiline
-            placeholder={"Verse 1:\nIn the shadows of the night..."}
+            placeholder={"[verse]\nIn the shadows of the night...\n\n[chorus]\nWe rise above the light..."}
             placeholderTextColor={theme.colors.gray.medium}
             value={lyrics}
             onChangeText={setLyrics}
@@ -55,11 +65,11 @@ export const CreateLyricsScreen = ({ navigation }) => {
 
         <View style={styles.footer}>
           <Pressable
-            style={[styles.button, !lyrics && styles.buttonDisabled]}
-            onPress={() => navigation.navigate('CreateGenre')}
+            style={styles.button}
+            onPress={handleNext}
           >
-            <Text style={[styles.buttonText, !lyrics && styles.buttonTextDisabled]}>
-              Next
+            <Text style={styles.buttonText}>
+              {lyrics ? 'Next' : 'Skip to Genre'}
             </Text>
           </Pressable>
         </View>
@@ -149,15 +159,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  buttonDisabled: {
-    backgroundColor: theme.colors.gray.light,
-  },
   buttonText: {
     color: theme.colors.white,
     fontSize: 16,
     fontWeight: theme.typography.weights.medium,
-  },
-  buttonTextDisabled: {
-    color: theme.colors.gray.dark,
   },
 });

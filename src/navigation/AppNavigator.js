@@ -7,6 +7,7 @@ import { theme } from '../theme';
 // Screens
 import { AuthScreen } from '../screens/AuthScreen';
 import { LandingScreen } from '../screens/LandingScreen';
+import { ChooseTrackScreen } from '../screens/ChooseTrackScreen';
 import { CreateGenreScreen } from '../screens/CreateGenreScreen';
 import { CreateLyricsScreen } from '../screens/CreateLyricsScreen';
 import { CreateVideoScreen } from '../screens/CreateVideoScreen';
@@ -25,6 +26,7 @@ const CreateFlow = () => {
       <Stack.Screen name="CreateVocal" component={CreateVocalScreen} />
       <Stack.Screen name="CreateVideo" component={CreateVideoScreen} />
       <Stack.Screen name="GenerationLoading" component={GenerationLoadingScreen} />
+      <Stack.Screen name="ChooseTrack" component={ChooseTrackScreen} />
     </Stack.Navigator>
   );
 };
