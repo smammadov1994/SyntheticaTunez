@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -17,10 +17,12 @@ import Animated, {
   useAnimatedStyle, 
   useSharedValue, 
   withSpring,
+  withTiming,
   FadeIn,
   FadeInDown,
   SlideInRight
 } from 'react-native-reanimated';
+import { Audio } from 'expo-av';
 import { PlaybackControls } from '../components/PlaybackControls';
 import { 
   getTrackById, 
@@ -47,8 +49,13 @@ export const NowPlayingScreen = ({ navigation, route }) => {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentPosition, setCurrentPosition] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioLoading, setAudioLoading] = useState(false);
 
+  const soundRef = useRef(null);
   const heartScale = useSharedValue(1);
+  const progressWidth = useSharedValue(0);
 
   const fetchTrackData = useCallback(async () => {
     if (!trackId) {
@@ -80,6 +87,94 @@ export const NowPlayingScreen = ({ navigation, route }) => {
   useEffect(() => {
     fetchTrackData();
   }, [fetchTrackData]);
+
+  // Cleanup audio on unmount
+  useEffect(() => {
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
+
+  // Load and play audio
+  const loadAndPlayAudio = async () => {
+    if (!track?.audio_url) {
+      console.warn('No audio URL available');
+      return;
+    }
+
+    try {
+      setAudioLoading(true);
+
+      // If already loaded, just play/pause
+      if (soundRef.current) {
+        if (isPlaying) {
+          await soundRef.current.pauseAsync();
+          setIsPlaying(false);
+        } else {
+          await soundRef.current.playAsync();
+          setIsPlaying(true);
+        }
+        setAudioLoading(false);
+        return;
+      }
+
+      // Load new audio
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: track.audio_url },
+        { shouldPlay: true },
+        onPlaybackStatusUpdate
+      );
+
+      soundRef.current = sound;
+      setIsPlaying(true);
+      setAudioLoading(false);
+    } catch (error) {
+      console.error('Error playing audio:', error);
+      setAudioLoading(false);
+      setIsPlaying(false);
+    }
+  };
+
+  const onPlaybackStatusUpdate = (status) => {
+    if (status.isLoaded) {
+      setCurrentPosition(status.positionMillis / 1000);
+      setAudioDuration(status.durationMillis / 1000 || track?.duration || 0);
+      
+      // Update progress bar
+      if (status.durationMillis > 0) {
+        const progress = (status.positionMillis / status.durationMillis) * 100;
+        progressWidth.value = withTiming(progress, { duration: 100 });
+      }
+
+      if (status.didJustFinish) {
+        setIsPlaying(false);
+        setCurrentPosition(0);
+        progressWidth.value = withTiming(0);
+      }
+    }
+  };
+
+  const handlePlayPause = async () => {
+    await loadAndPlayAudio();
+  };
+
+  const seekTo = async (position) => {
+    if (soundRef.current) {
+      await soundRef.current.setPositionAsync(position * 1000);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const progressAnimatedStyle = useAnimatedStyle(() => ({
+    width: `${progressWidth.value}%`,
+  }));
 
   const handleLikePress = async () => {
     if (!trackId) return;
@@ -226,9 +321,22 @@ export const NowPlayingScreen = ({ navigation, route }) => {
 
             <View style={styles.trackInfo}>
               <Text style={styles.title}>{displayTrack.title}</Text>
-              <Text style={styles.artist}>
-                {displayTrack.artist_name || displayTrack.profiles?.username || 'Unknown Artist'}
-              </Text>
+              <Pressable 
+                style={styles.artistRow}
+                onPress={() => {
+                  // Could navigate to artist profile in the future
+                }}
+              >
+                {displayTrack.profiles?.avatar_url && (
+                  <Image 
+                    source={{ uri: displayTrack.profiles.avatar_url }} 
+                    style={styles.artistAvatar}
+                  />
+                )}
+                <Text style={styles.artist}>
+                  @{displayTrack.profiles?.username || displayTrack.artist_name || 'unknown'}
+                </Text>
+              </Pressable>
               <View style={styles.statsRow}>
                 <View style={styles.stat}>
                   <Ionicons name="heart" size={14} color={theme.colors.gray.dark} />
@@ -238,31 +346,49 @@ export const NowPlayingScreen = ({ navigation, route }) => {
                   <Ionicons name="chatbubble" size={14} color={theme.colors.gray.dark} />
                   <Text style={styles.statText}>{comments.length}</Text>
                 </View>
-                <Text style={styles.badge}>
-                  {displayTrack.duration ? `${Math.floor(displayTrack.duration / 60)}:${String(displayTrack.duration % 60).padStart(2, '0')}` : '0:00'} • AI Generated
-                </Text>
+                {displayTrack.genre && (
+                  <View style={styles.genreBadge}>
+                    <Text style={styles.genreText}>{displayTrack.genre}</Text>
+                  </View>
+                )}
               </View>
             </View>
 
             <View style={styles.controlsContainer}>
               <View style={styles.progressContainer}>
-                <View style={styles.progressBar}>
-                  <View style={styles.progressFill} />
-                </View>
+                <Pressable 
+                  style={styles.progressBar}
+                  onPress={(e) => {
+                    // Calculate seek position from press
+                    const { locationX } = e.nativeEvent;
+                    const barWidth = e.target?.clientWidth || 300;
+                    const seekPercent = locationX / barWidth;
+                    const seekTime = seekPercent * (audioDuration || displayTrack.duration || 0);
+                    seekTo(seekTime);
+                  }}
+                >
+                  <Animated.View style={[styles.progressFill, progressAnimatedStyle]} />
+                </Pressable>
                 <View style={styles.timeRow}>
-                  <Text style={styles.timeText}>0:00</Text>
+                  <Text style={styles.timeText}>{formatTime(currentPosition)}</Text>
                   <Text style={styles.timeText}>
-                    {displayTrack.duration ? `${Math.floor(displayTrack.duration / 60)}:${String(displayTrack.duration % 60).padStart(2, '0')}` : '0:00'}
+                    {formatTime(audioDuration || displayTrack.duration || 0)}
                   </Text>
                 </View>
               </View>
 
               <PlaybackControls
                 isPlaying={isPlaying}
-                onPlayPause={() => setIsPlaying(!isPlaying)}
+                isLoading={audioLoading}
+                onPlayPause={handlePlayPause}
                 onNext={() => {}}
                 onPrev={() => {}}
+                disabled={!displayTrack.audio_url}
               />
+              
+              {!displayTrack.audio_url && (
+                <Text style={styles.noAudioText}>No audio available for this track</Text>
+              )}
             </View>
           </View>
         ) : (
@@ -384,10 +510,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
-  artist: {
-    fontSize: 18,
-    color: theme.colors.gray.dark,
+  artistRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 12,
+  },
+  artistAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.gray.light,
+  },
+  artist: {
+    fontSize: 16,
+    color: theme.colors.gray.dark,
   },
   statsRow: {
     flexDirection: 'row',
@@ -403,9 +540,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: theme.colors.gray.dark,
   },
-  badge: {
-    fontSize: 13,
+  genreBadge: {
+    backgroundColor: theme.colors.gray.light,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  genreText: {
+    fontSize: 12,
     color: theme.colors.gray.dark,
+    fontWeight: theme.typography.weights.medium,
   },
   progressContainer: {
     marginBottom: 32,
@@ -417,10 +561,15 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   progressFill: {
-    width: '0%',
     height: '100%',
     backgroundColor: theme.colors.black,
     borderRadius: 2,
+  },
+  noAudioText: {
+    textAlign: 'center',
+    color: theme.colors.gray.dark,
+    fontSize: 13,
+    marginTop: 16,
   },
   timeRow: {
     flexDirection: 'row',

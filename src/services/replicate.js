@@ -241,17 +241,30 @@ export const generateCoverArt = async ({ prompt }) => {
 };
 
 /**
- * Generate cover art based on song metadata
- * Creates a prompt from the song's genre, mood, and title
+ * Generate cover art based on song metadata and lyrics
+ * Creates an intelligent prompt that captures the essence of the lyrics
  * 
  * @param {Object} params
  * @param {string} params.title - Song title
  * @param {string} params.genre - Genre/style of the song
- * @param {string} params.mood - Mood/vibe of the song (optional)
+ * @param {string} params.lyrics - The song lyrics
  * @returns {Promise<string>} URL to generated image
  */
-export const generateCoverArtFromSong = async ({ title, genre, mood = '' }) => {
-  const prompt = `${genre} music album cover for a song called "${title}". ${mood ? `${mood} mood.` : ''} Abstract, artistic, modern design.`;
+export const generateCoverArtFromSong = async ({ title, genre, lyrics = '' }) => {
+  // Extract key themes and imagery from lyrics for a unique cover
+  const lyricsSnippet = lyrics
+    .replace(/\[(verse|chorus|bridge|outro|intro)\]/gi, '') // Remove structure tags
+    .split('\n')
+    .filter(line => line.trim().length > 0)
+    .slice(0, 8) // Take first 8 lines for context
+    .join(' ')
+    .substring(0, 500); // Limit length
+
+  const prompt = `Create a unique, artistic album cover for a ${genre || 'music'} song titled "${title || 'Untitled'}". 
+The artwork should visually capture the essence and emotions of these lyrics: "${lyricsSnippet}". 
+Style: Modern, abstract, emotionally evocative. Use colors and imagery that reflect the mood of the lyrics. 
+Professional music album artwork, high quality, visually striking, no text or words on the image.`;
+
   return generateCoverArt({ prompt });
 };
 
@@ -282,7 +295,7 @@ export const generateCompleteTrack = async ({
     // Run all three generations in parallel
     const [musicOptions, coverArtUrl] = await Promise.all([
       generateMusicOptions({ tags, prompt, lyrics, duration }),
-      generateCoverArtFromSong({ title, genre }),
+      generateCoverArtFromSong({ title, genre, lyrics }), // Pass lyrics for unique cover art
     ]);
 
     return {
