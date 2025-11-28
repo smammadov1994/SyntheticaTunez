@@ -14,15 +14,31 @@ import { theme } from '../theme';
 
 import { Ionicons } from '@expo/vector-icons';
 
+const MIN_CHARS = 100;
+const MAX_CHARS = 600;
+
 export const CreateLyricsScreen = ({ navigation }) => {
   const [lyrics, setLyrics] = useState('');
 
+  const charCount = lyrics.length;
+  const isTooShort = lyrics.length > 0 && lyrics.length < MIN_CHARS;
+  const isTooLong = lyrics.length > MAX_CHARS;
+  const isValid = lyrics.length === 0 || (lyrics.length >= MIN_CHARS && lyrics.length <= MAX_CHARS);
+
   const handleNext = () => {
+    if (!isValid) return;
     navigation.navigate('CreateGenre', { lyrics });
   };
 
   const handleSkip = () => {
     navigation.navigate('CreateGenre', { lyrics: '' });
+  };
+
+  const getCharCountColor = () => {
+    if (isTooLong) return theme.colors.error;
+    if (isTooShort) return theme.colors.warning || '#F5A623';
+    if (charCount >= MIN_CHARS) return theme.colors.success || '#34C759';
+    return theme.colors.gray.dark;
   };
 
   return (
@@ -48,7 +64,10 @@ export const CreateLyricsScreen = ({ navigation }) => {
           </Text>
 
           <TextInput
-            style={styles.input}
+            style={[
+              styles.input,
+              isTooLong && styles.inputError,
+            ]}
             multiline
             placeholder={"[verse]\nIn the shadows of the night...\n\n[chorus]\nWe rise above the light..."}
             placeholderTextColor={theme.colors.gray.medium}
@@ -58,17 +77,42 @@ export const CreateLyricsScreen = ({ navigation }) => {
             selectionColor={theme.colors.black}
           />
 
+          <View style={styles.charCountContainer}>
+            <Text style={[styles.charCount, { color: getCharCountColor() }]}>
+              {charCount}/{MAX_CHARS}
+            </Text>
+            {isTooShort && (
+              <Text style={styles.charWarning}>
+                Minimum {MIN_CHARS} characters required
+              </Text>
+            )}
+            {isTooLong && (
+              <Text style={styles.charError}>
+                Maximum {MAX_CHARS} characters exceeded
+              </Text>
+            )}
+          </View>
+
           <Text style={styles.helperText}>
-            Or leave blank for AI-generated lyrics
+            {lyrics.length === 0 
+              ? 'Or leave blank for AI-generated lyrics' 
+              : `${MIN_CHARS}-${MAX_CHARS} characters required`}
           </Text>
         </View>
 
         <View style={styles.footer}>
           <Pressable
-            style={styles.button}
+            style={[
+              styles.button,
+              !isValid && styles.buttonDisabled,
+            ]}
             onPress={handleNext}
+            disabled={!isValid}
           >
-            <Text style={styles.buttonText}>
+            <Text style={[
+              styles.buttonText,
+              !isValid && styles.buttonTextDisabled,
+            ]}>
               {lyrics ? 'Next' : 'Skip to Genre'}
             </Text>
           </Pressable>
@@ -141,11 +185,34 @@ const styles = StyleSheet.create({
       },
     }),
   },
+  charCountContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  charCount: {
+    fontSize: 13,
+    fontWeight: theme.typography.weights.medium,
+  },
+  charWarning: {
+    fontSize: 12,
+    color: '#F5A623',
+  },
+  charError: {
+    fontSize: 12,
+    color: theme.colors.error,
+  },
   helperText: {
     fontSize: 13,
     color: theme.colors.gray.dark,
     textAlign: 'center',
-    marginTop: 12,
+    marginTop: 8,
+  },
+  inputError: {
+    borderWidth: 1,
+    borderColor: theme.colors.error,
   },
   footer: {
     padding: 24,
@@ -159,9 +226,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  buttonDisabled: {
+    backgroundColor: theme.colors.gray.light,
+  },
   buttonText: {
     color: theme.colors.white,
     fontSize: 16,
     fontWeight: theme.typography.weights.medium,
+  },
+  buttonTextDisabled: {
+    color: theme.colors.gray.medium,
   },
 });
