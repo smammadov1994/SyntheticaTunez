@@ -63,3 +63,6 @@ build/
 
 # Misc
 .cache/
+
+# Cursor / internal notes (can contain secrets)
+cursor_improve_navigation_and_image_siz.md
