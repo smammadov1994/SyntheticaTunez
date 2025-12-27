@@ -602,3 +602,4 @@ export const searchTracks = async (query) => {
   return data || [];
 };
 
+

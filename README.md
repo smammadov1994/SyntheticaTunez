@@ -38,3 +38,5 @@ This project follows a "Ruthless Minimalism" design philosophy:
 - Monochromatic color palette (Black/White/Gray)
 - Content-first architecture
 - Generous whitespace
+
+# SyntheticaTunez
