@@ -64,16 +64,24 @@ export const updateProfile = async (updates) => {
 };
 
 /**
- * Check if a username is available
+ * Check if a username is available (excludes current user)
  */
 export const checkUsernameAvailability = async (username) => {
   if (!username || username.length < 3) return false;
   
-  const { data, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  let query = supabase
     .from('profiles')
     .select('id')
-    .eq('username', username)
-    .maybeSingle();
+    .eq('username', username);
+  
+  // Exclude current user so they can keep their own username
+  if (user) {
+    query = query.neq('id', user.id);
+  }
+  
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     console.error('Error checking username:', error);
@@ -90,18 +98,21 @@ export const completeOnboarding = async (username, bio, avatarUrl) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
 
-  const updates = {
+  const profileData = {
+    id: user.id,
     username,
     bio,
     avatar_url: avatarUrl,
     is_onboarded: true,
-    updated_at: new Date(),
+    updated_at: new Date().toISOString(),
   };
 
   const { error } = await supabase
     .from('profiles')
-    .update(updates)
-    .eq('id', user.id);
+    .upsert(profileData, { 
+      onConflict: 'id',
+      ignoreDuplicates: false 
+    });
 
   if (error) {
     console.error('Error completing onboarding:', error);

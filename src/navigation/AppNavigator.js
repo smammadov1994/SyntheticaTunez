@@ -59,10 +59,9 @@ export const AppNavigator = () => {
     checkAuth();
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       if (session) {
-        // Re-check profile on auth change (e.g. login)
         const profile = await getCurrentProfile();
         setIsOnboarded(!!profile?.is_onboarded);
       } else {
@@ -93,7 +92,9 @@ export const AppNavigator = () => {
           </>
         ) : (
           // User is signed in but NOT onboarded
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <Stack.Screen name="Onboarding">
+            {() => <OnboardingScreen onComplete={() => setIsOnboarded(true)} />}
+          </Stack.Screen>
         )
       ) : (
         // User is not signed in
